@@ -33,10 +33,14 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  const isPublicRoute = 
+    request.nextUrl.pathname === "/" ||
+    request.nextUrl.pathname.startsWith("/customer/auth/")
+
   if (
     !user &&
     !request.nextUrl.pathname.startsWith("/auth") &&
-    request.nextUrl.pathname !== "/"
+    !isPublicRoute
   ) {
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
@@ -53,15 +57,19 @@ export async function updateSession(request: NextRequest) {
     const userRole = userData?.role;
     const pathname = request.nextUrl.pathname;
 
-    // Prevent cleaners from accessing admin routes
-    if (userRole === 'cleaner' && pathname.startsWith('/admin')) {
+    if (userRole === 'customer' && (pathname.startsWith('/admin') || pathname.startsWith('/cleaner'))) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/customer/dashboard';
+      return NextResponse.redirect(url);
+    }
+
+    if (userRole === 'cleaner' && (pathname.startsWith('/admin') || pathname.startsWith('/customer'))) {
       const url = request.nextUrl.clone();
       url.pathname = '/cleaner';
       return NextResponse.redirect(url);
     }
 
-    // Prevent admins from accessing cleaner routes
-    if (userRole === 'admin' && pathname.startsWith('/cleaner')) {
+    if (userRole === 'admin' && (pathname.startsWith('/cleaner') || pathname.startsWith('/customer'))) {
       const url = request.nextUrl.clone();
       url.pathname = '/admin';
       return NextResponse.redirect(url);
